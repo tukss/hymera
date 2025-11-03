@@ -20,11 +20,10 @@ include("Utils")
 add_parthenon_test(avalanche_test
   SRCS
     ../src/util/common.hpp
-    ../old_hybrid/src/kinetic/AnalyticField.hpp
-    ../old_hybrid/src/kinetic/GuidingCenterEquations.hpp
-    ../old_hybrid/src/kinetic/SmallAngleCollision.hpp
-    ../old_hybrid/src/kinetic/LargeAngleCollision.hpp
-    ../old_hybrid/src/kinetic/dopri.hpp
+    ../src/kinetic/AnalyticField.hpp
+    ../src/kinetic/GuidingCenterEquations.hpp
+    ../src/kinetic/SmallAngleCollision.hpp
+    ../src/kinetic/LargeAngleCollision.hpp
     ../src/pgen.cpp
     ../src/pgen.hpp
     ../src/kinetic/EM_Field.hpp
