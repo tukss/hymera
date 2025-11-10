@@ -50,7 +50,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     permissions:
       packages: write
     steps:
@@ -71,11 +71,19 @@ jobs:
     - name: Install
       run: spack -e . install -v
 
-    - name: Run
+    - name: Configure
       shell: spack-bash {0}
       run: |
         spack env activate .
-        python3 -c 'print("hello world")'
+        cmake -Bbuild
+
+    - name: make
+      run: cmake --build build
+
+    - name: make test
+      run: |
+        cd build
+        ctest --verbose
 
     - name: Push packages and update index
       env:
