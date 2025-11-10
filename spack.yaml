@@ -11,6 +11,8 @@ spack:
   packages:
     all:
       require: 'target=x86_64_v3'
+    openblas:
+      require: ~ilp64
 
   mirrors:
     local-buildcache:
