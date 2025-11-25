@@ -183,9 +183,6 @@ int mhd_run(int argc, char ** argv, double* raw_field_ptr) {
     //PetscPrintf(PETSC_COMM_WORLD, "CFL value: %g\n", user.dt / PetscMin(user.dr,user.dz));
   }
 
-  runaway_finalize(user.manager);
-  PetscFinalize();
-  exit(0);
   /*  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   Extract global vectors from DM;
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */

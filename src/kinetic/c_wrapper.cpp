@@ -54,12 +54,12 @@ int parthenon_init(void ** man, int argc, char *argv[], User* mhd_config) {
   return 0;
 }
 
-int runaway_init(void * man) {
+int runaway_init(void * man, User* mhd_context) {
   ParthenonManager* pman = (ParthenonManager*) man;
   // Redefine parthenon defaults
-  pman->app_input->ProcessPackages = [](std::unique_ptr<ParameterInput> &pin) {
+  pman->app_input->ProcessPackages = [=](std::unique_ptr<ParameterInput> &pin) {
     Packages_t packages;
-    packages.Add(Kinetic::Initialize(pin.get()));
+    packages.Add(Kinetic::Initialize(pin.get(), mhd_context));
     return packages;
   };
   pman->app_input->ProblemGenerator = GenerateParticleCurrentDensity;

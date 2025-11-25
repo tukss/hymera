@@ -174,6 +174,7 @@ typedef struct{
   double axis[2];
 
   void* manager;
+  int ParticlesCreated;
 } User;
 
 typedef struct LocalCoordinate

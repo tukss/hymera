@@ -72,7 +72,7 @@ SWARM_VARIABLE(Real, particle, saved_w);
 //       will_scatter, secondary_index, status>(std::stringswarm_name);
 
 void InitializeMHDConfig(ParameterInput *pin, User* mhd_context);
-std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin, User* mhd_context);
 void ComputeParticleWeights(Mesh* pm);
 void SaveState(Mesh* pm);
 void RestoreState(Mesh* pm);

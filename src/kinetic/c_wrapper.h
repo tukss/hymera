@@ -19,8 +19,8 @@
 extern "C" {
 #endif
 
-  int  parthenon_init(void ** man, int argc, char *argv[], User* mhd_config);
-  int  runaway_init(void * man);
+  int  parthenon_init(void ** man, int argc, char *argv[], User* mhd_context);
+  int  runaway_init(void * man, User* mhd_config);
   void runaway_finalize(void* man);
 
   void runaway_push(void * man);

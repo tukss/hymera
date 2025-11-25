@@ -185,9 +185,8 @@ TaskStatus PushParticles(Mesh *pm, const Real dtLA) {
       });
   Kokkos::fence();
 
-
-
   return TaskStatus::complete;
+
 }
 
 TaskStatus CheckScatter(MeshBlock* pmb) {
@@ -337,6 +336,34 @@ TaskStatus AddSecondaries(MeshBlock* pmb, const Real dtLA,  const Real gamma_min
 	return TaskStatus::complete;
 }
 
+void RunawayDriver::PreExecute() {
+  auto pkg = pmesh->packages.Get("Deck");
+  auto field_interpolation = pkg->Param<EM_Field>("Field");
+
+  // Interpolate the jre data thats there and fields if new
+  field_interpolation.interpolate(); // sets jre to electric field
+
+  using Host = Kokkos::HostSpace;
+  using Unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
+  auto jre_mhd = pkg->Param<Kokkos::View<Real***, Kokkos::LayoutRight, Host, Unmanaged>>("JreData");
+  auto jre_mhd_d = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), jre_mhd);
+
+
+  // Zero out locan jre data to start depositing current
+  auto jre = field_interpolation.getJreDataSubview();
+
+  Kokkos::parallel_for(
+    PARTHENON_AUTO_LABEL,
+    Kokkos::MDRangePolicy<Kokkos::Rank<3>>({0,0,0}, {jre.extent(0), jre.extent(1), jre.extent(2)}),
+    // loop over all particles
+    KOKKOS_LAMBDA(int i, int j, int k) {
+      jre_mhd_d(i,j,k) += 0.0;
+      jre(i,j,k) = 0.0;
+    });
+  Kokkos::fence();
+  Kokkos::deep_copy(jre_mhd, jre_mhd_d);
+}
+
 void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
   auto pkg = pmesh->packages.Get("Deck");
   auto field_interpolation = pkg->Param<EM_Field>("Field");
@@ -345,23 +372,36 @@ void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
   const auto filePath = pkg->Param<std::string>("filePath");
   const auto cdg = pkg->Param<ConfigurationDomainGeometry>("CDG");
   const auto dt_cd = pkg->Param<Real>("dt_cd");
+  const auto dt_mhd = pkg->Param<Real>("dt_mhd");
   const auto p_RE = pkg->Param<Real>("p_RE");
   dumpToHDF5(field_interpolation, *ts);
 
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+  using Host = Kokkos::HostSpace;
+  using Unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
+  auto jre_mhd = pkg->Param<Kokkos::View<Real***, Kokkos::LayoutRight, Host, Unmanaged>>("JreData");
+  auto jre_mhd_d = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), jre_mhd);
+
+  const Real eta_mu0aVa = field_interpolation.eta_mu0aVa;
 
   Kokkos::parallel_for(
     PARTHENON_AUTO_LABEL,
-    Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0,0}, {jre.extent(0), jre.extent(1)}),
+    Kokkos::MDRangePolicy<Kokkos::Rank<3>>({0,0,0}, {jre.extent(0), jre.extent(1), jre.extent(2)}),
     // loop over all particles
-    KOKKOS_LAMBDA(int i, int j) {
-      jre(i,j,0) /= dt_cd;
-      jre(i,j,1) /= dt_cd;
-      jre(i,j,2) /= dt_cd;
+    KOKKOS_LAMBDA(int i, int j, int k) {
+      jre_mhd_d(i,j,k) += jre(i,j,k) / dt_mhd * eta_mu0aVa;
+      jre(i,j,k) /= dt_cd;
     });
   Kokkos::fence();
+  Kokkos::deep_copy(jre_mhd, jre_mhd_d);
+
+  MPI_Allreduce(MPI_IN_PLACE,jre_mhd.data(),jre_mhd.size(),MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  auto jre_h = Kokkos::create_mirror_view_and_copy(Host(), jre);
+  MPI_Allreduce(MPI_IN_PLACE,jre_h.data(),jre_h.size(),MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  Kokkos::deep_copy(jre, jre_h);
+
   field_interpolation.interpolate(); // sets jre to electric field
 
   auto md = pmesh->mesh_data.Get();
@@ -398,6 +438,7 @@ void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
         }
       },
       I_re);
+  MPI_Allreduce(MPI_IN_PLACE,&I_re,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 
   Real I_re_integral = 0.0;
   Real I_ohmic = 0.0;
@@ -407,9 +448,6 @@ void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
       // loop over all particles
       KOKKOS_LAMBDA(int i, int j, Real& integral, Real& integral_ohmic) {
         integral += cdg.dR * cdg.dZ * jre(i,j,1);
-        jre(i,j,0) = 0.0;
-        jre(i,j,1) = 0.0;
-        jre(i,j,2) = 0.0;
         Real t = 0;
 
         Real R = cdg.R0 + i * cdg.dR;

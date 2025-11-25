@@ -25,6 +25,7 @@ public:
     return status;
   }
 
+  void PreExecute();
   void PostExecute(parthenon::DriverStatus st);
 
   TaskCollection MakeTaskCollection(BlockList_t &blocks, SimTime tm);

@@ -21,9 +21,8 @@
 #include <petscdmda.h>
 #include <petscdmpatch.h>
 #include <petscsf.h>
-#include <hFlux/c_wrapper.h>
 
-#include "RunawayKineticSolverWrapper.h"
+#include "kinetic/c_wrapper.h"
 
 #define PETSC_NULL_VEC PETSC_NULLPTR
 
@@ -10399,13 +10398,13 @@ PetscErrorCode PushParticles(TS ts, Vec Xp, Vec X, void *ptr)
         = gf_B_2Dp[dim + (i + j * user->Nr) * 3 + it * 3 * user->Nr*user->Nz];
         index = i + user->Nr * (j + user->Nz * (1 + 4 * (dim + 3 * it)));
         user->field_data[index]
-        = gf_Bd_2Dp[dim + (i + j * user->Nr) * 3 + it * 3 * user->Nr*user->Nz];
-        index = i + user->Nr * (j + user->Nz * (2 + 4 * (dim + 3 * it)));
-        user->field_data[index]
         = gf_V_2Dp[dim + (i + j * user->Nr) * 3 + it * 3 * user->Nr*user->Nz];
         index = i + user->Nr * (j + user->Nz * (3 + 4 * (dim + 3 * it)));
         user->field_data[index]
         = gf_E_2D[(i + j * user->Nr) + dim * user->Nr*user->Nz + it * 3 * user->Nr*user->Nz];
+//        index = i + user->Nr * (j + user->Nz * (1 + 4 * (dim + 3 * it)));
+//        user->field_data[index]
+//        = gf_Bd_2Dp[dim + (i + j * user->Nr) * 3 + it * 3 * user->Nr*user->Nz];
       }
     }
   }
@@ -10501,11 +10500,14 @@ PetscErrorCode PushParticles(TS ts, Vec Xp, Vec X, void *ptr)
 //    free(poincare_data);
 //  }
 
-//  if (user->kctx.DoAdvance == 1)
-//  {
-//    PetscPrintf(PETSC_COMM_WORLD, "Advancing for dt = %le", user->dt);
-//    /* RuKS_advance(user->runaway_solver, user->dt); */
-//  }
+  if (user->ParticlesCreated == 0) {
+    runaway_init(user->manager, user);
+    user->ParticlesCreated = 1;
+    runaway_saveState(user->manager);
+  }
+
+  PetscPrintf(PETSC_COMM_WORLD, "Advancing for dt = %le", user->dt);
+  runaway_push(user->manager);
 
   free(gf_B_2Dp);
   free(gf_E_2D);

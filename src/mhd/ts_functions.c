@@ -17,6 +17,7 @@
 #include "geometry.h"
 #include "mass_matrix_coefficients.h"
 #include "mimetic_operators.h"
+#include "kinetic/c_wrapper.h"
 
 PetscErrorCode FormIJacobian_BImplicit(TS ts, PetscReal t, Vec X, Vec Xdot, PetscReal a, Mat J, Mat Jpre, void * ptr) {
   return (0);
@@ -19460,6 +19461,7 @@ PetscErrorCode Update_J_RE(TS ts)
   PetscPrintf(PETSC_COMM_WORLD, "Finish particles with (B_n,E_n)\n");
 
   for (count = 0; count < user->pred_loop; count++) {
+    runaway_restoreState(user->manager);
 
     SNES dummysnes;
     KSP dummyKSP;
@@ -19760,6 +19762,7 @@ PetscErrorCode Update_J_RE(TS ts)
     PetscPrintf(PETSC_COMM_WORLD, "(B_{n},E_{n})*(t_{n+1} - t)+ (B_{n+1,\ast},E_{n+1,\ast})*(t-t_n)/dt finish \n", (double) ftime, count);
     /* user->present_current = RuKS_getIre(user->runaway_solver); */
   }
+  runaway_saveState(user->manager);
   return 0;
 }
 
