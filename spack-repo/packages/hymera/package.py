@@ -24,7 +24,7 @@ class Hymera(CMakePackage):
     depends_on("parthenon@25.05:")
     depends_on("hdf5+cxx")
     depends_on("kokkos")
-    depends_on("petsc")
+    depends_on("petsc+mumps")
     depends_on("hflux@main")
 
     depends_on("c", type="build")
