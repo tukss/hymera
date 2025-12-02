@@ -33,6 +33,7 @@ using parthenon::constants::SI;
 using parthenon::constants::PhysicalConstants;
 using pc = PhysicalConstants<SI>;
 
+
 namespace Kinetic {
 void InitializeMHDConfig(ParameterInput *pin, User* mhd_context) {
   /// Physical constants
@@ -57,7 +58,7 @@ void InitializeMHDConfig(ParameterInput *pin, User* mhd_context) {
   const Real a  = pin->GetOrAddReal("Reference", "a", 2.0);    ///< Minor radius [m] and reference length
   const Real R0 = pin->GetOrAddReal("Reference", "R0", 6.0);    ///< Major radius [m]
   const Real nD0 = pin->GetOrAddReal("Reference", "nD0", 1e20);    ///< Deutirium density [m^-3]
-  const Real Te0 = pin->GetOrAddReal("Reference", "Te0", 10e3);  ///< Electron temperature [eV], and plasma temperature single-temperature model
+  const Real Te0 = pin->GetOrAddReal("Reference", "Te0", 2.0198);  ///< Electron temperature [eV], and plasma temperature single-temperature model
 
   /// Derived parameters
   const Real VA   = pin->GetOrAddReal("Derived", "VA",  B0 / sqrt(mi * nD0 * mu0)); ///< Alfven velocity [m/s]
@@ -290,6 +291,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin, User* mhd_conte
 
   const Real tau_a = 6*M_PI*eps0*pow(me * c, 3) / pow(e,4) / pow(B0,2);     ///< Syncrotron radiation damping time
   const Real tau_c = 4*M_PI*pow(eps0 * me / e / e * c, 2)*c/(n_e0*Coulog0); ///< Relativistic collision time
+
   const Real Ec = me * c / e / tau_c;                                       ///< Connor-Hastie Electric field
   const Real En = E0 / Ec;
   const Real eta_mu0aVa = etaplasma / eta0; // converts eta * \curl B to V_A B_0
@@ -297,21 +299,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin, User* mhd_conte
 
 
 
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  if (rank == 0) {
-
-    std::cout << std::scientific << std::setprecision(std::numeric_limits<double>::max_digits10);
-    std::cout << "cBn = " << std::setw(20) << eta_mu0aVa   << std::endl
-              << "Jn  = " << std::setw(20) << etaec_a3VaB0 << std::endl
-              << "En = "  << std::setw(20) << En           << std::endl
-              << "Ec = "  << std::setw(20) << Ec           << std::endl
-              << "dt_LA"  << std::setw(20) << dt_LA  / tau_c << std::endl
-              << "dt_cd"  << std::setw(20) << dt_cd  / tau_c << std::endl
-              << "dt_mhd" << std::setw(20) << dt_mhd / tau_c << std::endl
-              << "tau_c"  << std::setw(20) << tau_c
-              << std::endl;
-
+  if (Globals::my_rank) {
+    std::cout << std::format("cBn = {:.8E} Jn = {:.8E} En = {:.8E} Ec = {:.8E}", eta_mu0aVa, etaec_a3VaB0, En, Ec) << std::endl
+              << std::format("dt_LA = {:.8E} dt_cd = {:.8E} dt_mhd = {:.8E} [tau_c = {:.8E}]",
+                     dt_LA / tau_c, dt_cd / tau_c, dt_mhd / tau_c, tau_c) << std::endl;
   }
 
   auto pkg = std::make_shared<StateDescriptor>("Deck");
@@ -326,7 +317,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin, User* mhd_conte
 
   const std::string filePath = pin->GetOrAddString("Simulation", "file_path", "current.out");
   pkg->AddParam("filePath", filePath);
-  if (rank == 0) {
+  if (Globals::my_rank == 0) {
     std::ofstream(pkg->Param<std::string>("filePath"));
   }
 
@@ -338,8 +329,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin, User* mhd_conte
   pkg->AddParam("p_BC", p_BC);
   pkg->AddParam("p_RE", p_RE);
 
-  int * ts = new int;
-  *ts = 0;
+  auto ts = std::make_shared<int>(0);
   pkg->AddParam("ts", ts);
 
   pkg->AddParam("final_time", final_time);
@@ -384,17 +374,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin, User* mhd_conte
 
   ConfigurationDomainGeometry cdg(RminCellCenter, ZminCellCenter, dR, dZ, -3, indicator);
   pkg->AddParam("CDG", cdg);
-  EM_Field field_interpolation(NR, NZ, nphi_data, nt, RminCellCenter, ZminCellCenter, dR, dZ, En, eta_mu0aVa, etaec_a3VaB0, cdg);
-  auto field_data = field_interpolation.getDataRef();
+  auto f = std::make_shared<EM_Field>(NR, NZ, nphi_data, nt, RminCellCenter, ZminCellCenter, dR, dZ, En, eta_mu0aVa, etaec_a3VaB0, cdg);
+  auto field_data = f -> getDataRef();
   using Host = Kokkos::HostSpace;
   using Unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
   Kokkos::View<Real******, Kokkos::LayoutLeft, Host, Unmanaged> field_data_h(mhd_context->field_data, NR, NZ, 4, 3, 1, 2);
   Kokkos::deep_copy(field_data, field_data_h);
-  field_interpolation.interpolate();
-  pkg->AddParam("Field", field_interpolation);
+  f -> interpolate();
+  pkg->AddParam("Field", f);
   pkg->AddParam("FieldData", field_data_h);
 
-  auto jre = field_interpolation.getJreDataSubview();
+  auto jre = f -> getJreDataSubview();
   Kokkos::View<double***> jre_backup("jre_backup", jre.extent(0), jre.extent(1), jre.extent(2));
   pkg->AddParam("JreBackup", jre_backup);
 
@@ -403,13 +393,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin, User* mhd_conte
 
   const Real wce0 = pc::qe * B0 / pc::me; // Electron gyrofrequency
   const Real c_aw0 =  pin->GetOrAddReal("GuidingCenterEquations", "c_aw0", pc::c/a/wce0);
-  const Real ct_a =   pin->GetOrAddReal("GuidingCenterEquations", "ct_a", pc::c/vTe);
+  const Real ct_a =   pin->GetOrAddReal("GuidingCenterEquations", "ct_a", pc::c * tau_c / a);
   const Real alpha0 = pin->GetOrAddReal("GuidingCenterEquations", "alpha0", tau_c/tau_a);
 
-  GuidingCenterEquations<EM_Field, true, false> gce(field_interpolation, c_aw0, ct_a,
-                                                        alpha0);
-  pkg->AddParam("GCE", gce);
-
+  pkg->AddParam("c_aw0", c_aw0);
+  pkg->AddParam("ct_a", ct_a);
+  pkg->AddParam("alpha0", alpha0);
 
   const int npart =  pin->GetOrAddInteger("ParticleSeed", "num_particles_per_block", 16);
   pkg->AddParam("num_particles_per_block", npart);
@@ -472,15 +461,32 @@ void InitializeDriver(ParthenonManager* man) {
   auto driver = std::make_shared<RunawayDriver>(man->pinput.get(), man->app_input.get(), man->pmesh.get());
   driver->tm.tlim = 0.0;
   pkg->AddParam("Driver", driver);
+  pkg->AddParam("tm_backup", std::make_shared<SimTime>(driver->tm));
 }
 
 void Push(ParthenonManager * man) {
   auto pkg = man->pmesh.get()->packages.Get("Deck");
   auto driver = pkg->Param<std::shared_ptr<RunawayDriver>>("Driver");
+
+  auto f = pkg->Param<std::shared_ptr<EM_Field>>("Field");
+
+  // Set current timeframe
   const auto dt_mhd = pkg->Param<Real>("dt_mhd");
   const auto dt_cd = pkg->Param<Real>("dt_cd");
+
+  f->t_a = driver->tm.tlim;
+  f->t_b = driver->tm.tlim + dt_mhd;
+
+  if (Globals::my_rank == 0) {
+    std::cout << std::format("Fields are interpolated in time from {:.8e} to {:.8e}", f->t_a, f->t_b) << std::endl;
+  }
+
   while (driver.get()->tm.tlim < dt_mhd) {
-    driver.get()->tm.tlim += dt_cd;
+    if(Globals::my_rank == 0)
+      std::cout << std::format("Executing driver from {:.8e} ", driver->tm.tlim);
+    driver->tm.tlim += dt_cd;
+    if(Globals::my_rank == 0)
+      std::cout << std::format(" to {:.8e}", driver->tm.tlim) << std::endl;
 	  auto driver_status = driver.get()->Execute();
   }
 }
@@ -512,8 +518,12 @@ void SaveState(Mesh* pm) {
       });
 
   auto pkg = pm->packages.Get("Deck");
-  auto jre = pkg->Param<EM_Field>("Field").getJreDataSubview();
+  auto jre = pkg->Param<std::shared_ptr<EM_Field>>("Field")->getJreDataSubview();
   auto jre_backup = pkg->Param<Kokkos::View<Real***>>("JreBackup");
+
+  auto tm_backup = pkg->Param<std::shared_ptr<SimTime>>("tm_backup");
+  *tm_backup = pkg->Param<std::shared_ptr<RunawayDriver>>("Driver")->tm;
+
   Kokkos::deep_copy(jre_backup, jre);
 }
 
@@ -552,8 +562,12 @@ void RestoreState(Mesh* pm) {
       });
 
   auto pkg = pm->packages.Get("Deck");
-  auto jre = pkg->Param<EM_Field>("Field").getJreDataSubview();
+  auto jre = pkg->Param<std::shared_ptr<EM_Field>>("Field")->getJreDataSubview();
   auto jre_backup = pkg->Param<Kokkos::View<Real***>>("JreBackup");
+
+  auto tm_backup = pkg->Param<std::shared_ptr<SimTime>>("tm_backup");
+  pkg->Param<std::shared_ptr<RunawayDriver>>("Driver")->tm = *tm_backup;
+
   Kokkos::deep_copy(jre, jre_backup);
 }
 
@@ -561,7 +575,7 @@ void ComputeParticleWeights(Mesh* pm) {
 
   auto md = pm->mesh_data.Get();
   auto pkg = pm->packages.Get("Deck");
-  const auto field_interpolation = pkg->Param<EM_Field>("Field");
+  const auto f = pkg->Param<std::shared_ptr<EM_Field>>("Field");
 
   const Real p_RE = pkg->Param<Real>("p_RE");
   const Real seed_current = pkg->Param<Real>("seed_current");
@@ -578,7 +592,12 @@ void ComputeParticleWeights(Mesh* pm) {
   auto pack_swarm_r = desc_swarm_r.GetPack(md.get());
   auto pack_swarm_i = desc_swarm_i.GetPack(md.get());
 
-  std::cout << "Calculating current";
+  if (Globals::my_rank == 0)
+    std::cout << "Calculating current: \n";
+
+  auto field_interpolation = *f;
+  field_interpolation.t_a = 0.0;
+  field_interpolation.t_b = 1.0;
 
   Kokkos::parallel_reduce(
       PARTHENON_AUTO_LABEL, pack_swarm_r.GetMaxFlatIndex() + 1,
@@ -604,15 +623,13 @@ void ComputeParticleWeights(Mesh* pm) {
       },
       I_re);
 
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Allreduce(MPI_IN_PLACE,&I_re,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 
 
   Kokkos::fence();
   Real w = seed_current / I_re;
-  std::cout << "I_re = " << std::setw(20) << I_re
-            << "   w = " << std::setw(20) << w;
+  if (Globals::my_rank == 0)
+    std::cout << std::format("I_re = {:.8E}, w = {:.8E}\n", I_re, w) << std::endl;
   parthenon::par_for(DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL,
                      DevExecSpace(), 0, pack_swarm_r.GetMaxFlatIndex(),
                      // new_n ranges from 0 to N_new_particles

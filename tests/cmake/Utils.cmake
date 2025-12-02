@@ -49,8 +49,8 @@ function(add_parthenon_test test_name)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
   )
 
-  # 3) C++17
-  target_compile_features(${test_name} PRIVATE cxx_std_17)
+  # 3) C+20
+  target_compile_features(${test_name} PRIVATE cxx_std_20)
 
   # 4) Link against Parthenon
   target_link_libraries(${test_name} PRIVATE HDF5::HDF5 Parthenon::parthenon hflux::hflux)

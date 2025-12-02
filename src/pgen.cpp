@@ -233,7 +233,10 @@ void GenerateParticleCurrentDensity(parthenon::MeshBlock *pmb, parthenon::Parame
   const Real Rc  = pkg->Param<Real>("Rc");
   const Real Zc  = pkg->Param<Real>("Zc");
 
-  const auto field_interpolation = pkg->Param<EM_Field>("Field");
+  const auto f = pkg->Param<std::shared_ptr<EM_Field>>("Field");
+  auto field_interpolation = *f;
+  field_interpolation.t_a = 0.0;
+  field_interpolation.t_b = 1.0;;
   const auto cdg = field_interpolation.cdg;
   const auto seed_current = pkg->Param<Real>("seed_current");
   const auto p_RE = pkg->Param<Real>("p_RE");
@@ -332,9 +335,9 @@ void GenerateParticleCurrentDensity(parthenon::MeshBlock *pmb, parthenon::Parame
       KOKKOS_ASSERT(level == 2);
 
 
-      Dim3 B = {}, dBdR = {}, dBdZ = {}, curlB = {}, E = {};
+      Dim3 B = {}, dBdR = {}, dBdZ = {}, curlB = {}, E = {}, dbdt = {};
       Dim3 B_center = {}, curlB_center = {};
-      ERROR_CODE status = field_interpolation(X, t, B_center, curlB_center, dBdR, dBdZ, E);
+      ERROR_CODE status = field_interpolation(X, t, B_center, curlB_center, dBdR, dBdZ, E, dbdt);
       KOKKOS_ASSERT(status == SUCCESS);
 
       // Generate particles:
@@ -356,7 +359,7 @@ void GenerateParticleCurrentDensity(parthenon::MeshBlock *pmb, parthenon::Parame
         int level = cdg.indicator(X, i, j);
         if (level != 2)
           continue;
-        status = field_interpolation(X, t, B, curlB, dBdR, dBdZ, E);
+        status = field_interpolation(X, t, B, curlB, dBdR, dBdZ, E, dbdt);
         KOKKOS_ASSERT(status == SUCCESS);
 
         if (randNum < abs(curlB[1])) break;

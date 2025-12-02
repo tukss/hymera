@@ -16,8 +16,8 @@
 template <class Field>
 KOKKOS_INLINE_FUNCTION
 Real getParticleCurrent(Dim5& X, Real t, Real w, const Field f) {
-  Dim3 B, curlB, dBdR, dBdZ, E;
-  ERROR_CODE ret = f(X, t, B, curlB, dBdR, dBdZ, E);
+  Dim3 B, curlB, dBdR, dBdZ, E, dbdt;
+  ERROR_CODE ret = f(X, t, B, curlB, dBdR, dBdZ, E, dbdt);
   KOKKOS_ASSERT(ret == SUCCESS);
 
   const Dim5::value_type p = X[0];

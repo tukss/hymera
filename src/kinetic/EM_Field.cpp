@@ -31,7 +31,7 @@ void dumpToHDF5(EM_Field f, const int i_file, const Real t) {
   const Real dR = (Rmax - Rmin) / (Nplot-1);
   const Real dZ = (Zmax - Zmin) / (Nplot-1);
 
-  Kokkos::DualView<Real****> dv("dv", Nplot, Nplot, 8, 3);
+  Kokkos::DualView<Real****> dv("dv", Nplot, Nplot, 9, 3);
 
   dv.modify<Kokkos::DefaultExecutionSpace>();
   auto dview = dv.d_view;
@@ -56,13 +56,13 @@ void dumpToHDF5(EM_Field f, const int i_file, const Real t) {
   KOKKOS_LAMBDA(int i, int j){
     Real R = Rmin + dR * i;
     Real Z = Zmin + dZ * j;
-    Dim3 B = {}, curlB = {}, dBdR = {}, dBdZ = {}, E = {}, Jre = {}, V = {};
+    Dim3 B = {}, curlB = {}, dBdR = {}, dBdZ = {}, E = {}, Jre = {}, V = {}, dbdt = {};
     Dim5 X = {0.0,0.0,R,0.0,Z};
 
-    auto ret = f(X, t, B, curlB, dBdR, dBdZ, E, Jre, V);
+    auto ret = f(X, t, B, curlB, dBdR, dBdZ, E, Jre, V, dbdt);
     KOKKOS_ASSERT((ret == SUCCESS) || (ret == WALL_IMPACT));
     Real psi;
-    ret = f.evalPsi(psi, X, psi_hermite_data);
+    ret = f.evalPsi(psi, X, t, psi_hermite_data);
     KOKKOS_ASSERT(ret == SUCCESS);
 
     dview(i,j,0,0) = R;
@@ -76,6 +76,7 @@ void dumpToHDF5(EM_Field f, const int i_file, const Real t) {
       dview(i,j,5,dim) = E[dim];
       dview(i,j,6,dim) = Jre[dim] * f.etaec_a3VaB0 * f.E_n;
       dview(i,j,7,dim) = V[dim];
+      dview(i,j,8,dim) = dbdt[dim];
     }
   });
   Kokkos::fence();
@@ -92,7 +93,7 @@ void dumpToHDF5(EM_Field f, const int i_file, const Real t) {
 
     hid_t file = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     hsize_t dims[4] = {
-      3, 8,
+      3, 9,
         static_cast<hsize_t>(Nplot),
         static_cast<hsize_t>(Nplot)
     };

@@ -1,10 +1,12 @@
 #include "RunawayDriver.h"
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
+#include <parthenon/globals.hpp>
 #include <parthenon_manager.hpp>
 #include <iostream>
 #include <iomanip>
 #include <limits>
+#include <format>
 
 #include <Kokkos_Core.hpp>
 
@@ -43,8 +45,8 @@ void DepositCurrent(const Dim5& X, const Real t, const Real w, CurrentDensityVie
 
   Real contribution = -p * xi / gamma_(p) / R / cdg.dR / cdg.dZ / 2.0 / M_PI * time_interval * w;
 
-  Dim3 B, curlB, dBdR, dBdZ, E;
-  ERROR_CODE ret = field(X, t, B, curlB, dBdR, dBdZ, E);
+  Dim3 B, curlB, dBdR, dBdZ, E, dbdt;
+  ERROR_CODE ret = field(X, t, B, curlB, dBdR, dBdZ, E, dbdt);
   KOKKOS_ASSERT(ret == SUCCESS);
 
   int i, j;
@@ -74,7 +76,7 @@ void DepositCurrent(const Dim5& X, const Real t, const Real w, CurrentDensityVie
   }
 }
 
-TaskStatus PushParticles(Mesh *pm, const Real dtLA) {
+TaskStatus PushParticles(Mesh *pm, SimTime tm) {
   // get mesh data
   auto md = pm->mesh_data.Get();
 
@@ -88,15 +90,19 @@ TaskStatus PushParticles(Mesh *pm, const Real dtLA) {
   const auto p_BC = pkg->Param<Real>("p_BC");
   const auto p_RE = pkg->Param<Real>("p_RE");
 
-  std::cout << "Device=" << DevExecSpace().name() << std::endl;
+  if (Globals::my_rank == 0)
+    std::cout << std::format("Device= {} ", DevExecSpace().name()) << std::endl;
   const auto ms = pkg->Param<MollerSource>("MollerSource");
-  const auto gce =
-      pkg->Param<GuidingCenterEquations<EM_Field, true, false>>("GCE");
   const auto cdg = pkg->Param<ConfigurationDomainGeometry>("CDG");
   const auto sa = pkg->Param<SmallAngleCollision<PartialScreening, EnergyScattering, ModifiedCouLog>>("SmallAngleCollision");
   const Real dtSA_min = sa.getSmallAngleCollisionTimestep(momentum_(1.000020));
-  const Real dtSA_max = dtLA;
-  auto field_interpolation = pkg->Param<EM_Field>("Field");
+  const Real dtSA_max = tm.dt;
+  auto f = pkg->Param<std::shared_ptr<EM_Field>>("Field");
+
+  const auto c_aw0 = pkg->Param<Real>("c_aw0");
+  const auto ct_a = pkg->Param<Real>("ct_a");
+  const auto alpha0 = pkg->Param<Real>("alpha0");
+  GuidingCenterEquations<EM_Field, true, false> gce(*f, c_aw0, ct_a, alpha0);
 
   Kokkos::Timer timer;
 
@@ -111,7 +117,12 @@ TaskStatus PushParticles(Mesh *pm, const Real dtLA) {
   auto pack_swarm_r = desc_swarm_r.GetPack(md.get());
   auto pack_swarm_i = desc_swarm_i.GetPack(md.get());
 
-  auto jre = field_interpolation.getJreDataSubview();
+  auto jre = f->getJreDataSubview();
+
+  const Real tstart = tm.time;
+  const Real tstop = tm.time + tm.dt;
+
+  auto field_interpolation = *f;
 
   parthenon::par_for(DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL,
                      DevExecSpace(), 0, pack_swarm_r.GetMaxFlatIndex(),
@@ -124,7 +135,7 @@ TaskStatus PushParticles(Mesh *pm, const Real dtLA) {
         if (swarm_d.IsActive(n) && !swarm_d.IsMarkedForRemoval(n)&&
             (pack_swarm_i(b, Kinetic::status(), n) & Kinetic::ALIVE) ) {
           Dim5 X;
-          Real t = 0.0;
+          Real t = tstart;
           X[0] = pack_swarm_r(b, Kinetic::p(), n);
           X[1] = pack_swarm_r(b, Kinetic::xi(), n);
           X[2] = pack_swarm_r(b, Kinetic::R(), n);
@@ -138,8 +149,8 @@ TaskStatus PushParticles(Mesh *pm, const Real dtLA) {
             Real dtSA =
                 sa.getSmallAngleCollisionTimestep(X[0], dtSA_min, dtSA_max);
 
-            if (t + dtSA > dtLA) {
-              dtSA = dtLA - t;
+            if (t + dtSA > tstop) {
+              dtSA = tstop - t;
               if (dtSA < 1e-16) {
                 break;
               }
@@ -171,7 +182,7 @@ TaskStatus PushParticles(Mesh *pm, const Real dtLA) {
 
             sa(X[0], X[1], dtSA, rng_pool);
             t += dtSA;
-            if (t > dtLA)
+            if (t > tstop)
               break;
           }
 
@@ -182,7 +193,7 @@ TaskStatus PushParticles(Mesh *pm, const Real dtLA) {
         	pack_swarm_r(b, Kinetic::Z(), n)   = X[4];
 
           pack_swarm_i(b, Kinetic::will_scatter(), n) =
-                 ms(X[0], w, dtLA, gamma_min, rng_pool);
+                 ms(X[0], w, tm.dt, gamma_min, rng_pool);
         }
       });
   Kokkos::fence();
@@ -340,10 +351,10 @@ TaskStatus AddSecondaries(MeshBlock* pmb, const Real dtLA,  const Real gamma_min
 
 void RunawayDriver::PreExecute() {
   auto pkg = pmesh->packages.Get("Deck");
-  auto field_interpolation = pkg->Param<EM_Field>("Field");
+  auto f = pkg->Param<std::shared_ptr<EM_Field>>("Field");
 
   // Interpolate the jre data thats there and fields if new
-  field_interpolation.interpolate(); // sets jre to electric field
+  f->interpolate(); // sets jre to electric field
 
   using Host = Kokkos::HostSpace;
   using Unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
@@ -351,7 +362,7 @@ void RunawayDriver::PreExecute() {
   auto jre_mhd_d = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), jre_mhd);
 
   // Zero out locan jre data to start depositing current
-  auto jre = field_interpolation.getJreDataSubview();
+  auto jre = f->getJreDataSubview();
 
   Kokkos::parallel_for(
     PARTHENON_AUTO_LABEL,
@@ -367,22 +378,23 @@ void RunawayDriver::PreExecute() {
 
 void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
   auto pkg = pmesh->packages.Get("Deck");
-  auto field_interpolation = pkg->Param<EM_Field>("Field");
-  auto jre_subview = field_interpolation.getJreDataSubview();
-  auto jre = field_interpolation.jre_data;
+  auto f = pkg->Param<std::shared_ptr<EM_Field>>("Field");
+  auto jre_subview = f->getJreDataSubview();
+  auto jre = f->jre_data;
   Kokkos::deep_copy(jre, jre_subview);
 
-  auto ts = pkg->Param<int*>("ts");
+  auto ts = pkg->Param<std::shared_ptr<int>>("ts");
+
   const auto filePath = pkg->Param<std::string>("filePath");
   const auto cdg = pkg->Param<ConfigurationDomainGeometry>("CDG");
   const auto dt_cd = pkg->Param<Real>("dt_cd");
   const auto dt_mhd = pkg->Param<Real>("dt_mhd");
   const auto p_RE = pkg->Param<Real>("p_RE");
 
-  int rank = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  if (rank == 0)
-    dumpToHDF5(field_interpolation, *ts);
+  if (Globals::my_rank == 0) {
+    std::cout << std::format("Dumping fields, t = {:.8e}", tm.time) << std::endl;
+    dumpToHDF5(*f, *ts, tm.time);
+  }
 
 
   using Host = Kokkos::HostSpace;
@@ -390,7 +402,7 @@ void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
   auto jre_mhd = pkg->Param<Kokkos::View<Real***, Kokkos::LayoutRight, Host, Unmanaged>>("JreData");
   auto jre_mhd_d = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), jre_mhd);
 
-  const Real eta_mu0aVa = field_interpolation.eta_mu0aVa;
+  const Real eta_mu0aVa = f->eta_mu0aVa;
 
   Kokkos::parallel_for(
     PARTHENON_AUTO_LABEL,
@@ -411,11 +423,11 @@ void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
   Kokkos::deep_copy(jre, jre_h);
   Kokkos::deep_copy(jre_subview, jre);
 
-  if (rank == 0) {
+  if (Globals::my_rank == 0) {
     std::cout << "Interpolating fields!" << std::endl;
   }
 
-  field_interpolation.interpolate(); // sets jre to electric field
+  f->interpolate(); // sets jre to electric field
 
   auto md = pmesh->mesh_data.Get();
   auto desc_swarm_r = parthenon::MakeSwarmPackDescriptor<
@@ -427,6 +439,8 @@ void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
 
   auto pack_swarm_r = desc_swarm_r.GetPack(md.get());
   auto pack_swarm_i = desc_swarm_i.GetPack(md.get());
+
+  auto field_interpolation = *f;
 
   Real I_re = 0.0;
   Kokkos::parallel_reduce(
@@ -465,25 +479,21 @@ void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
 
         Real R = cdg.R0 + i * cdg.dR;
         Real Z = cdg.Z0 + j * cdg.dZ;
-        Dim3 B = {}, curlB = {}, dBdR = {}, dBdZ = {}, E = {};
+        Dim3 B = {}, curlB = {}, dBdR = {}, dBdZ = {}, E = {}, dbdt = {};
         Dim5 X = {0.0,0.0,R,0.0,Z};
 
-        auto ret = field_interpolation(X, t, B, curlB, dBdR, dBdZ, E);
+        auto ret = field_interpolation(X, t, B, curlB, dBdR, dBdZ, E, dbdt);
         if (ret == SUCCESS) integral_ohmic += cdg.dR * cdg.dZ * curlB[1];
       },
       I_re_integral, I_ohmic);
 
   Kokkos::fence();
 
-  if (rank == 0) {
+  if (Globals::my_rank == 0) {
     std::ofstream ofs(filePath, std::ios::app);
-    //ofs << std::format("{:20.14e} {:20.14e} {:20.14e} {:20.14e}\n", dt_cd * (*ts+1), I_re * pc::qe * pc::c * .5,
-    //    I_re_integral * pc::qe * pc::c * .5, I_ohmic * 5.3  * 2.0 / pc::mu0);
-    ofs << std::scientific << std::setprecision(std::numeric_limits<double>::max_digits10);
-    ofs << std::setw(20) << dt_cd * (*ts+1)
-        << std::setw(20) << I_re * pc::qe * pc::c * .5
-        << std::setw(20) << I_re_integral * pc::qe * pc::c * .5
-        << std::setw(20) << I_ohmic * 5.3  * 2.0 / pc::mu0;
+    ofs << std::format("{:20.14e} {:20.14e} {:20.14e} {:20.14e}",
+        tm.time, I_re * pc::qe * pc::c * .5, I_re_integral * pc::qe * pc::c * .5,
+        I_ohmic * 5.3  * 2.0 / pc::mu0) << std::endl;
   }
   *ts += 1;
   Kokkos::fence();
@@ -507,7 +517,7 @@ TaskCollection RunawayDriver::MakeTaskCollection(BlockList_t &blocks, SimTime tm
     auto &mbase = pmesh->mesh_data.Add("base", partitions[i]);
 
     // add tasks that are per mesh here
-    auto push = tl.AddTask(none, PushParticles, pmesh, tm.dt);
+    auto push = tl.AddTask(none, PushParticles, pmesh, tm);
   }
 
   // these are per block tasklists

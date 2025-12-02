@@ -55,3 +55,4 @@ target_include_directories(hybrid PRIVATE
 
 target_link_libraries(hybrid PRIVATE PkgConfig::PETSC)
 target_link_libraries(hybrid PRIVATE HDF5::HDF5 Parthenon::parthenon hflux::hflux)
+target_compile_features(hybrid PRIVATE cxx_std_20)

@@ -10285,7 +10285,7 @@ PetscErrorCode PushParticles(TS ts, Vec Xp, Vec X, void *ptr)
     runaway_saveState(user->manager);
   }
 
-  PetscPrintf(PETSC_COMM_WORLD, "Advancing for dt = %le", user->dt);
+  PetscPrintf(PETSC_COMM_WORLD, "Advancing for dt = %le\n", user->dt);
   runaway_push(user->manager);
 
   free(gf_B_2Dp);

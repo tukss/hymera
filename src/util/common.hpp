@@ -17,6 +17,8 @@
 #include <Kokkos_Random.hpp>
 using RNGPool=Kokkos::Random_XorShift64_Pool<>;
 
+constexpr int _p = 8; // Precision to output doubles
+
 KOKKOS_INLINE_FUNCTION Real ChsPsi(Real x) {
     return 0.5*(erf(x) - (2.0 / sqrt(M_PI)) * x * exp(-x * x)) / x / x;
 }
