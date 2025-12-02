@@ -388,7 +388,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin, User* mhd_conte
   Kokkos::View<double***> jre_backup("jre_backup", jre.extent(0), jre.extent(1), jre.extent(2));
   pkg->AddParam("JreBackup", jre_backup);
 
-  Kokkos::View<Real***, Kokkos::LayoutRight, Host, Unmanaged> jre_h(mhd_context->jre_data, NR, NZ, 3);
+  Kokkos::View<Real****, Kokkos::LayoutRight, Host, Unmanaged> jre_h(mhd_context->jre_data, NR, NZ, 3, 2);
   pkg->AddParam("JreData", jre_h);
 
   const Real wce0 = pc::qe * B0 / pc::me; // Electron gyrofrequency

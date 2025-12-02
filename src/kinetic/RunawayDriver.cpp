@@ -356,11 +356,6 @@ void RunawayDriver::PreExecute() {
   // Interpolate the jre data thats there and fields if new
   f->interpolate(); // sets jre to electric field
 
-  using Host = Kokkos::HostSpace;
-  using Unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
-  auto jre_mhd = pkg->Param<Kokkos::View<Real***, Kokkos::LayoutRight, Host, Unmanaged>>("JreData");
-  auto jre_mhd_d = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), jre_mhd);
-
   // Zero out locan jre data to start depositing current
   auto jre = f->getJreDataSubview();
 
@@ -369,11 +364,9 @@ void RunawayDriver::PreExecute() {
     Kokkos::MDRangePolicy<Kokkos::Rank<3>>({0,0,0}, {jre.extent(0), jre.extent(1), jre.extent(2)}),
     // loop over all particles
     KOKKOS_LAMBDA(int i, int j, int k) {
-      jre_mhd_d(i,j,k) += 0.0;
       jre(i,j,k) = 0.0;
     });
   Kokkos::fence();
-  Kokkos::deep_copy(jre_mhd, jre_mhd_d);
 }
 
 void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
@@ -382,6 +375,9 @@ void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
   auto jre_subview = f->getJreDataSubview();
   auto jre = f->jre_data;
   Kokkos::deep_copy(jre, jre_subview);
+  auto jre_h = Kokkos::create_mirror_view_and_copy(Host(), jre);
+  MPI_Allreduce(MPI_IN_PLACE,jre_h.data(),jre_h.size(),MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  Kokkos::deep_copy(jre, jre_h);
 
   auto ts = pkg->Param<std::shared_ptr<int>>("ts");
 
@@ -396,10 +392,9 @@ void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
     dumpToHDF5(*f, *ts, tm.time);
   }
 
-
   using Host = Kokkos::HostSpace;
   using Unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
-  auto jre_mhd = pkg->Param<Kokkos::View<Real***, Kokkos::LayoutRight, Host, Unmanaged>>("JreData");
+  auto jre_mhd = pkg->Param<Kokkos::View<Real****, Kokkos::LayoutRight, Host, Unmanaged>>("JreData");
   auto jre_mhd_d = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), jre_mhd);
 
   const Real eta_mu0aVa = f->eta_mu0aVa;
@@ -409,18 +404,13 @@ void RunawayDriver::PostExecute(parthenon::DriverStatus st) {
     Kokkos::MDRangePolicy<Kokkos::Rank<3>>({0,0,0}, {jre.extent(0), jre.extent(1), jre.extent(2)}),
     // loop over all particles
     KOKKOS_LAMBDA(int i, int j, int k) {
-      jre_mhd_d(i,j,k) += jre(i,j,k) / dt_mhd * eta_mu0aVa;
+      jre_mhd_d(i,j,k,0) += jre(i,j,k) / dt_mhd * eta_mu0aVa;
       jre(i,j,k) /= dt_cd;
     });
   Kokkos::fence();
   Kokkos::deep_copy(jre_mhd, jre_mhd_d);
 
-  MPI_Allreduce(MPI_IN_PLACE,jre_mhd.data(),jre_mhd.size(),MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  auto jre_h = Kokkos::create_mirror_view_and_copy(Host(), jre);
-  MPI_Allreduce(MPI_IN_PLACE,jre_h.data(),jre_h.size(),MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-
   // Double copy because subviews cannot copy to views throgh host-device interface
-  Kokkos::deep_copy(jre, jre_h);
   Kokkos::deep_copy(jre_subview, jre);
 
   if (Globals::my_rank == 0) {
