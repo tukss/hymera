@@ -2969,8 +2969,8 @@ PetscErrorCode ApplyDerivedDivergence(TS ts, Vec X, Vec F, void * ptr) {
   PetscLogDouble user_event_flops;
 
   PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("ApplyDerivedDivergence",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscLogEventRegister("ApplyDerivedDivergence",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   DM da, coordDA = user -> coorda;
@@ -3150,8 +3150,8 @@ PetscErrorCode ApplyDerivedDivergence(TS ts, Vec X, Vec F, void * ptr) {
 
   DMStagVecRestoreArrayRead(dmCoorda, coordaLocal, & arrCoorda);
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -3162,8 +3162,8 @@ PetscErrorCode ApplyDeltastar(TS ts, Vec X, Vec F, void * ptr) {
   PetscLogDouble user_event_flops;
 
   PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("ApplyDeltastar",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscLogEventRegister("ApplyDeltastar",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   Vec Fcopy;
@@ -3180,8 +3180,8 @@ PetscErrorCode ApplyDeltastar(TS ts, Vec X, Vec F, void * ptr) {
   /* Restore vectors */
   VecDestroy( & Fcopy);
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -3193,8 +3193,8 @@ PetscErrorCode ApplyDeltastar2(TS ts, Vec X, Vec F, void * ptr) {
   PetscLogDouble user_event_flops;
 
   PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("ApplyDeltastar2",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscLogEventRegister("ApplyDeltastar2",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   DM da, coordDA = user -> coorda;
@@ -3290,8 +3290,8 @@ PetscErrorCode ApplyDeltastar2(TS ts, Vec X, Vec F, void * ptr) {
 
   DMStagVecRestoreArrayRead(dmCoorda, coordaLocal, & arrCoorda);
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -3301,9 +3301,9 @@ PetscErrorCode ApplyVectorLaplacian(TS ts, Vec X, Vec F, void * ptr) {
   PetscClassId   classid;
   PetscLogDouble user_event_flops;
 
-  PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("ApplyVectorLaplacian",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscClassIdRegister("class name",&classid); */
+  /* PetscLogEventRegister("ApplyVectorLaplacian",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   DM da, coordDA = user -> coorda;
@@ -3549,8 +3549,8 @@ PetscErrorCode ApplyVectorLaplacian(TS ts, Vec X, Vec F, void * ptr) {
 
   DMStagVecRestoreArrayRead(dmCoorda, coordaLocal, & arrCoorda);
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -4260,9 +4260,9 @@ PetscErrorCode FormPrimaryCurl(TS ts, Vec X, Vec F, void * ptr) {
   PetscClassId   classid;
   PetscLogDouble user_event_flops;
 
-  PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("FormPrimaryCurl",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscClassIdRegister("class name",&classid); */
+  /* PetscLogEventRegister("FormPrimaryCurl",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   DM da, coordDA = user -> coorda;
@@ -4451,8 +4451,8 @@ PetscErrorCode FormPrimaryCurl(TS ts, Vec X, Vec F, void * ptr) {
     VecView(F, PETSC_VIEWER_STDOUT_WORLD);
   }
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -4464,8 +4464,8 @@ PetscErrorCode FormDerivedCurl(TS ts, Vec X, Vec F, void * ptr) {
   PetscLogDouble user_event_flops;
 
   PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("FormDerivedCurl",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscLogEventRegister("FormDerivedCurl",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   DM da, coordDA = user -> coorda;
@@ -4728,8 +4728,8 @@ PetscErrorCode FormDerivedCurl(TS ts, Vec X, Vec F, void * ptr) {
 
   DMStagVecRestoreArrayRead(dmCoorda, coordaLocal, & arrCoorda);
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -4741,8 +4741,8 @@ PetscErrorCode FormDerivedCurlnores(TS ts, Vec X, Vec F, void * ptr) {
   PetscLogDouble user_event_flops;
 
   PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("FormDerivedCurlnores",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscLogEventRegister("FormDerivedCurlnores",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   DM da, coordDA = user -> coorda;
@@ -5005,8 +5005,8 @@ PetscErrorCode FormDerivedCurlnores(TS ts, Vec X, Vec F, void * ptr) {
 
   DMStagVecRestoreArrayRead(dmCoorda, coordaLocal, & arrCoorda);
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -5018,8 +5018,8 @@ PetscErrorCode FormDerivedCurlnomp(TS ts, Vec X, Vec F, void * ptr) {
   PetscLogDouble user_event_flops;
 
   PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("FormDerivedCurlnomp",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscLogEventRegister("FormDerivedCurlnomp",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   DM da, coordDA = user -> coorda;
@@ -5282,8 +5282,8 @@ PetscErrorCode FormDerivedCurlnomp(TS ts, Vec X, Vec F, void * ptr) {
 
   DMStagVecRestoreArrayRead(dmCoorda, coordaLocal, & arrCoorda);
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -5628,9 +5628,9 @@ PetscErrorCode FormSourceTermPotential(TS ts, PetscReal time, Vec P, void * ptr)
   PetscClassId   classid;
   PetscLogDouble user_event_flops;
 
-  PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("FormSourceTermPotential",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscClassIdRegister("unique class name",&classid); */
+  /* PetscLogEventRegister("FormSourceTermPotential",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   DM da;
@@ -5936,12 +5936,13 @@ PetscErrorCode FormSourceTermPotential(TS ts, PetscReal time, Vec P, void * ptr)
 
   if (user -> debug) {
     /*This print is just for debugging*/
+    printf("foo!\n");
     PetscPrintf(PETSC_COMM_WORLD, "Source term potential vector\n");
-    VecView(P, PETSC_VIEWER_STDOUT_WORLD);
+    /* VecView(P, PETSC_VIEWER_STDOUT_WORLD); */
   }
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* printf("%d\n", (int)PetscLogFlops(user_event_flops)); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -6364,9 +6365,9 @@ PetscErrorCode FormDiscreteGradientEP_noMat(TS ts, Vec X, Vec F, void * ptr) {
   PetscClassId   classid;
   PetscLogDouble user_event_flops;
 
-  PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("FormDiscreteGradientEP_noMat",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscClassIdRegister("class name",&classid); */
+  /* PetscLogEventRegister("FormDiscreteGradientEP_noMat",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   DM da, coordDA = user -> coorda;
@@ -6532,8 +6533,8 @@ PetscErrorCode FormDiscreteGradientEP_noMat(TS ts, Vec X, Vec F, void * ptr) {
 
   DMStagVecRestoreArrayRead(dmCoorda, coordaLocal, & arrCoorda);
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -6545,8 +6546,8 @@ PetscErrorCode FormDiscreteGradientEP_tilde(TS ts, Vec X, Vec F, void * ptr) {
   PetscLogDouble user_event_flops;
 
   PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("FormDiscreteGradientEP_tilde",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscLogEventRegister("FormDiscreteGradientEP_tilde",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   DM da, coordDA = user -> coorda;
@@ -6726,8 +6727,8 @@ PetscErrorCode FormDiscreteGradientEP_tilde(TS ts, Vec X, Vec F, void * ptr) {
 
   DMStagVecRestoreArrayRead(dmCoorda, coordaLocal, & arrCoorda);
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -6738,9 +6739,9 @@ PetscErrorCode FormDiscreteGradientVectorField(TS ts, Vec X, Vec F1, Vec F2, Vec
   PetscClassId   classid;
   PetscLogDouble user_event_flops;
 
-  PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("FormDiscreteGradientVectorField",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscClassIdRegister("class name",&classid); */
+  /* PetscLogEventRegister("FormDiscreteGradientVectorField",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
   DM da, coordDA = user -> coorda;
@@ -6982,8 +6983,8 @@ PetscErrorCode FormDiscreteGradientVectorField(TS ts, Vec X, Vec F1, Vec F2, Vec
 
   DMStagVecRestoreArrayRead(dmCoorda, coordaLocal, & arrCoorda);
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
@@ -6995,8 +6996,8 @@ PetscErrorCode FormElectricField(TS ts, Vec X, Vec F, void * ptr) {
   PetscLogDouble user_event_flops;
 
   PetscClassIdRegister("class name",&classid);
-  PetscLogEventRegister("FormElectricField",classid,&USER_EVENT);
-  PetscLogEventBegin(USER_EVENT,0,0,0,0);
+  /* PetscLogEventRegister("FormElectricField",classid,&USER_EVENT); */
+  /* PetscLogEventBegin(USER_EVENT,0,0,0,0); */
 
   User * user = (User * ) ptr;
 
@@ -7004,8 +7005,8 @@ PetscErrorCode FormElectricField(TS ts, Vec X, Vec F, void * ptr) {
   VecScale(F,-1.0);
   VecAXPY(F,1.0,X);
 
-  PetscLogFlops(user_event_flops);
-  PetscLogEventEnd(USER_EVENT,0,0,0,0);
+  /* PetscLogFlops(user_event_flops); */
+  /* PetscLogEventEnd(USER_EVENT,0,0,0,0); */
 
   return (0);
 }
